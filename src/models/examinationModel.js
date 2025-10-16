@@ -32,30 +32,10 @@ const examinationSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
-        vitalSigns: {
-            temperature: { type: Number, min: 30, max: 45 }, // Celsius
-            bloodPressure: {
-                systolic: { type: Number, min: 60, max: 250 },
-                diastolic: { type: Number, min: 40, max: 150 },
-            },
-            heartRate: { type: Number, min: 40, max: 200 }, // BPM
-            respiratoryRate: { type: Number, min: 8, max: 40 }, // BPM
-            weight: { type: Number, min: 0, max: 300 }, // kg
-            height: { type: Number, min: 0, max: 250 }, // cm
-            oxygenSaturation: { type: Number, min: 70, max: 100 }, // %
-        },
         diagnosis: {
-            primary: {
-                code: { type: String, trim: true }, // ICD-10 code
-                description: { type: String, required: true, trim: true },
-            },
-            secondary: [
-                {
-                    code: { type: String, trim: true },
-                    description: { type: String, trim: true },
-                },
-            ],
-            provisional: { type: String, trim: true },
+            type: String,
+            required: [true, 'Diagnosis is required'],
+            trim: true,
         },
         treatment: {
             instructions: { type: String, trim: true },

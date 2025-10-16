@@ -1,10 +1,11 @@
 import express from 'express';
 import {
     createPatient,
-    getPatients,
-    getPatientById,
     updatePatient,
     deletePatient,
+    getPatients,
+    getPatientById,
+    searchPatients,
     getPatientMedicalHistory,
 } from '../../../../controllers/patient/patientController.js';
 import {
@@ -19,8 +20,9 @@ Router.use(authenticateToken);
 
 // Patient CRUD operations
 Router.post('/', authorize('admin', 'doctor'), createPatient);
-Router.get('/', getPatients);
-Router.get('/:id', getPatientById);
+Router.get('/search', searchPatients); // Search patients with multiple criteria
+Router.get('/', getPatients); // Get all patients with optional filtering
+Router.get('/:id', getPatientById); // Get patient by ID
 Router.put('/:id', authorize('admin', 'doctor'), updatePatient);
 Router.delete('/:id', authorize('admin'), deletePatient);
 

@@ -27,16 +27,7 @@ const patientSchema = new mongoose.Schema(
             required: [true, 'Phone number is required'],
             unique: true,
             trim: true,
-            match: [/^[0-9+\-\s()]+$/, 'Please enter a valid phone number'],
-        },
-        email: {
-            type: String,
-            trim: true,
-            lowercase: true,
-            match: [
-                /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-                'Please enter a valid email',
-            ],
+            match: [/^[0-9+\-\s()]+$/, 'Vui lòng nhập số điện thoại hợp lệ'],
         },
         address: {
             street: { type: String, trim: true },
@@ -55,11 +46,6 @@ const patientSchema = new mongoose.Schema(
             type: String,
             trim: true,
             sparse: true,
-        },
-        emergencyContact: {
-            name: { type: String, trim: true },
-            phone: { type: String, trim: true },
-            relationship: { type: String, trim: true },
         },
         medicalHistory: {
             allergies: [{ type: String, trim: true }],
