@@ -6,7 +6,6 @@ import {
     getPatientExaminationHistory,
     getExaminations,
     completeExamination,
-    cancelExamination,
 } from '../../../../controllers/examination/examinationController.js';
 import {
     authenticateToken,
@@ -18,27 +17,24 @@ const Router = express.Router();
 // Tất cả routes đều yêu cầu xác thực
 Router.use(authenticateToken);
 
-// Tạo hồ sơ bệnh án ban đầu cho bệnh nhân
+// Tạo phiếu khám mới
 Router.post('/', authorize('admin', 'doctor'), createExamination);
 
-// Lấy danh sách hồ sơ khám bệnh với bộ lọc
+// Lấy danh sách phiếu khám với bộ lọc
 Router.get('/', getExaminations);
 
-// Xem chi tiết hồ sơ bệnh án
+// Xem chi tiết phiếu khám
 Router.get('/:id', getExaminationById);
 
-// Cập nhật hồ sơ bệnh án
+// Cập nhật phiếu khám
 Router.put('/:id', authorize('admin', 'doctor'), updateExamination);
 
-// Hoàn thành hồ sơ khám bệnh
+// Hoàn thành phiếu khám
 Router.patch(
     '/:id/complete',
     authorize('admin', 'doctor'),
     completeExamination,
 );
-
-// Hủy hồ sơ khám bệnh
-Router.patch('/:id/cancel', authorize('admin', 'doctor'), cancelExamination);
 
 // Xem lịch sử các lần khám của bệnh nhân
 Router.get('/patient/:patientId/history', getPatientExaminationHistory);

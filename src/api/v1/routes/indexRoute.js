@@ -1,8 +1,7 @@
 import express from 'express';
-import { userRoute } from './userRoute.js';
 import authRoute from './authRoute.js';
 import patientRoute from './patient/patientRoute.js';
-import patientKioskRoute from './kiosk/patientKioskRoute.js';
+import appointmentRoute from './appointment/appointmentRoute.js';
 import examinationRoute from './examination/examinationRoute.js';
 
 const Router = express.Router();
@@ -14,16 +13,13 @@ Router.use('/checkAPI', (req, res) => {
 // Authentication routes
 Router.use('/auth', authRoute);
 
-// User management routes
-Router.use('/user', userRoute);
-
 // Patient management routes (authenticated)
 Router.use('/patients', patientRoute);
 
+// Appointment management routes
+Router.use('/appointments', appointmentRoute);
+
 // Examination management routes (authenticated)
 Router.use('/examinations', examinationRoute);
-
-// Kiosk routes (public access)
-Router.use('/kiosk/patients', patientKioskRoute);
 
 export default Router;

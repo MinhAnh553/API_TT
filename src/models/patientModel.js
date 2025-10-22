@@ -9,22 +9,22 @@ const patientSchema = new mongoose.Schema(
         },
         fullName: {
             type: String,
-            required: [true, 'Full name is required'],
+            required: [true, 'Họ tên là bắt buộc'],
             trim: true,
-            maxlength: [100, 'Full name cannot exceed 100 characters'],
+            maxlength: [100, 'Họ tên không được vượt quá 100 ký tự'],
         },
         dateOfBirth: {
             type: Date,
-            required: [true, 'Date of birth is required'],
+            required: [true, 'Ngày sinh là bắt buộc'],
         },
         gender: {
             type: String,
             enum: ['male', 'female', 'other'],
-            required: [true, 'Gender is required'],
+            required: [true, 'Giới tính là bắt buộc'],
         },
         phone: {
             type: String,
-            required: [true, 'Phone number is required'],
+            required: [true, 'Số điện thoại là bắt buộc'],
             unique: true,
             trim: true,
             match: [/^[0-9+\-\s()]+$/, 'Vui lòng nhập số điện thoại hợp lệ'],
@@ -39,7 +39,7 @@ const patientSchema = new mongoose.Schema(
         idNumber: {
             type: String,
             unique: true,
-            sparse: true, // Allow null values but ensure uniqueness when present
+            sparse: true,
             trim: true,
         },
         insuranceNumber: {
@@ -47,11 +47,26 @@ const patientSchema = new mongoose.Schema(
             trim: true,
             sparse: true,
         },
-        medicalHistory: {
-            allergies: [{ type: String, trim: true }],
-            chronicDiseases: [{ type: String, trim: true }],
-            currentMedications: [{ type: String, trim: true }],
-            notes: { type: String, trim: true },
+        // Thông tin y tế đơn giản (thay vì object phức tạp)
+        allergies: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        chronicDiseases: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        currentMedications: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        medicalNotes: {
+            type: String,
+            trim: true,
+            default: '',
         },
         qrCode: {
             type: String,

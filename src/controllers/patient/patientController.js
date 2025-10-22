@@ -1,6 +1,8 @@
 import Joi from 'joi';
 import Patient from '../../models/patientModel.js';
 import User from '../../models/userModel.js';
+import Examination from '../../models/examinationModel.js';
+import Appointment from '../../models/appointmentModel.js';
 
 // Validation schemas
 const createPatientSchema = Joi.object({
