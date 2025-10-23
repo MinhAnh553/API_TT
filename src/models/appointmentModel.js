@@ -62,6 +62,7 @@ const appointmentSchema = new mongoose.Schema(
                 'completed', // Hoàn thành
                 'cancelled', // Đã hủy
                 'no_show', // Không đến khám
+                'rescheduled', // Đã đổi lịch
             ],
             default: 'scheduled',
         },
@@ -72,10 +73,30 @@ const appointmentSchema = new mongoose.Schema(
         checkOutTime: {
             type: Date,
         },
+        // Thông tin bác sĩ và chuyên khoa
+        doctor: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+        },
+        department: {
+            type: String,
+            trim: true,
+        },
+        reasonForVisit: {
+            type: String,
+            trim: true,
+        },
         // Liên kết với examination khi bác sĩ tạo phiếu khám
         examination: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Examination',
+            default: null,
+        },
+        // Liên kết với doctor schedule
+        doctorSchedule: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'DoctorSchedule',
             default: null,
         },
         // Thông tin hủy lịch
@@ -148,6 +169,9 @@ appointmentSchema.index({ appointmentDate: 1, 'timeSlot.start': 1 });
 appointmentSchema.index({ phone: 1 });
 appointmentSchema.index({ status: 1 });
 appointmentSchema.index({ patient: 1 });
+appointmentSchema.index({ doctor: 1 });
+appointmentSchema.index({ department: 1 });
+appointmentSchema.index({ doctorSchedule: 1 });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 

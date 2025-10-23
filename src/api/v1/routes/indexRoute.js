@@ -3,6 +3,7 @@ import authRoute from './authRoute.js';
 import patientRoute from './patient/patientRoute.js';
 import appointmentRoute from './appointment/appointmentRoute.js';
 import examinationRoute from './examination/examinationRoute.js';
+import doctorScheduleRoute from './doctorSchedule/doctorScheduleRoute.js';
 
 const Router = express.Router();
 
@@ -21,5 +22,8 @@ Router.use('/appointments', appointmentRoute);
 
 // Examination management routes (authenticated)
 Router.use('/examinations', examinationRoute);
+
+// Doctor schedule management routes (authenticated)
+Router.use('/doctor-schedules', doctorScheduleRoute);
 
 export default Router;

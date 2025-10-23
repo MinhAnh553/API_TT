@@ -1,14 +1,27 @@
 import Joi from 'joi';
 import Appointment from '../../models/appointmentModel.js';
 import Patient from '../../models/patientModel.js';
+import DoctorSchedule from '../../models/doctorScheduleModel.js';
+import User from '../../models/userModel.js';
+import SmartSchedulingService from '../../services/smartSchedulingService.js';
 
 // Validation schemas
 const createAppointmentSchema = Joi.object({
-    fullName: Joi.string().required().messages({
-        'any.required': 'Họ tên là bắt buộc',
+    patient: Joi.string().optional(), // Có thể tạo appointment mà chưa có patient
+    fullName: Joi.string().when('patient', {
+        is: Joi.exist(),
+        then: Joi.optional(),
+        otherwise: Joi.required().messages({
+            'any.required': 'Họ tên là bắt buộc khi chưa có mã bệnh nhân',
+        }),
     }),
-    phone: Joi.string().required().messages({
-        'any.required': 'Số điện thoại là bắt buộc',
+    phone: Joi.string().when('patient', {
+        is: Joi.exist(),
+        then: Joi.optional(),
+        otherwise: Joi.required().messages({
+            'any.required':
+                'Số điện thoại là bắt buộc khi chưa có mã bệnh nhân',
+        }),
     }),
     appointmentDate: Joi.date().required().messages({
         'any.required': 'Ngày đặt lịch là bắt buộc',
@@ -32,6 +45,10 @@ const createAppointmentSchema = Joi.object({
             }),
         duration: Joi.number().min(15).max(180).default(30).optional(),
     }).required(),
+    // Thông tin bác sĩ và chuyên khoa
+    doctor: Joi.string().optional(),
+    department: Joi.string().optional(),
+    reasonForVisit: Joi.string().trim().optional(),
 }).custom((value, helpers) => {
     // Validate time slot
     if (value.timeSlot && value.timeSlot.start && value.timeSlot.end) {
@@ -84,14 +101,32 @@ export const createAppointment = async (req, res) => {
             patientId = patient._id;
         }
 
-        // TODO: Kiểm tra xung đột lịch sẽ được thêm sau
-        // Tạm thời bỏ qua để tránh lỗi MongoDB
+        // Kiểm tra xung đột lịch bằng SmartSchedulingService
+        if (value.doctor) {
+            const conflictCheck =
+                await SmartSchedulingService.checkAppointmentConflict({
+                    doctor: value.doctor,
+                    appointmentDate: value.appointmentDate,
+                    timeSlot: value.timeSlot,
+                });
+
+            if (conflictCheck.hasConflict) {
+                return res.status(400).json({
+                    success: false,
+                    message: conflictCheck.reason,
+                });
+            }
+        }
 
         // Tạo appointment mới
         const appointment = new Appointment({
             ...value,
             patient: patientId,
+            doctor: value.doctor || null,
+            department: value.department || null,
+            reasonForVisit: value.reasonForVisit || null,
             source: 'online', // Đặt lịch online
+            createdBy: req.user?.userId || null,
         });
 
         await appointment.save();
@@ -292,6 +327,257 @@ export const checkInAppointment = async (req, res) => {
 };
 
 // Hủy lịch khám (cần auth)
+// Tìm bác sĩ còn trống lịch
+export const findAvailableDoctors = async (req, res) => {
+    try {
+        const { date, time, department, specialization, duration } = req.query;
+
+        if (!date || !time) {
+            return res.status(400).json({
+                success: false,
+                message: 'Ngày và giờ là bắt buộc',
+            });
+        }
+
+        const availableDoctors =
+            await SmartSchedulingService.findAvailableDoctors({
+                date: new Date(date),
+                time,
+                department,
+                specialization,
+                duration: duration ? parseInt(duration) : 30,
+            });
+
+        res.status(200).json({
+            success: true,
+            data: availableDoctors,
+        });
+    } catch (error) {
+        console.error('Lỗi tìm bác sĩ:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message,
+        });
+    }
+};
+
+// Gợi ý bác sĩ thay thế
+export const suggestAlternativeDoctors = async (req, res) => {
+    try {
+        const {
+            preferredDoctor,
+            date,
+            time,
+            department,
+            specialization,
+            duration,
+        } = req.query;
+
+        if (!preferredDoctor || !date || !time) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bác sĩ mong muốn, ngày và giờ là bắt buộc',
+            });
+        }
+
+        const alternatives =
+            await SmartSchedulingService.suggestAlternativeDoctors({
+                preferredDoctor,
+                date: new Date(date),
+                time,
+                department,
+                specialization,
+                duration: duration ? parseInt(duration) : 30,
+            });
+
+        res.status(200).json({
+            success: true,
+            data: alternatives,
+        });
+    } catch (error) {
+        console.error('Lỗi gợi ý bác sĩ:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message,
+        });
+    }
+};
+
+// Đổi lịch hẹn
+export const rescheduleAppointment = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { appointmentDate, timeSlot, doctor, reason } = req.body;
+
+        // Validate request body
+        const { error, value } = Joi.object({
+            appointmentDate: Joi.date().required(),
+            timeSlot: Joi.object({
+                start: Joi.string()
+                    .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+                    .required(),
+                end: Joi.string()
+                    .pattern(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+                    .required(),
+                duration: Joi.number().min(15).max(180).default(30).optional(),
+            }).required(),
+            doctor: Joi.string().optional(),
+            reason: Joi.string().trim().optional(),
+        }).validate({ appointmentDate, timeSlot, doctor, reason });
+
+        if (error) {
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: error.details.map((detail) => detail.message),
+            });
+        }
+
+        // Find existing appointment
+        const existingAppointment = await Appointment.findById(id);
+        if (!existingAppointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lịch hẹn không tồn tại',
+            });
+        }
+
+        // Check if appointment can be rescheduled
+        if (
+            existingAppointment.status === 'completed' ||
+            existingAppointment.status === 'cancelled'
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể đổi lịch hẹn đã hoàn thành hoặc đã hủy',
+            });
+        }
+
+        // Check for conflicts
+        const doctorToCheck = doctor || existingAppointment.doctor;
+        if (doctorToCheck) {
+            const conflictCheck =
+                await SmartSchedulingService.checkAppointmentConflict({
+                    doctor: doctorToCheck,
+                    appointmentDate: value.appointmentDate,
+                    timeSlot: value.timeSlot,
+                    excludeAppointmentId: id,
+                });
+
+            if (conflictCheck.hasConflict) {
+                return res.status(400).json({
+                    success: false,
+                    message: conflictCheck.reason,
+                });
+            }
+        }
+
+        // Update appointment
+        const updatedAppointment = await Appointment.findByIdAndUpdate(
+            id,
+            {
+                appointmentDate: value.appointmentDate,
+                timeSlot: value.timeSlot,
+                doctor: doctor || existingAppointment.doctor,
+                status: 'rescheduled',
+                rescheduleReason: value.reason,
+                rescheduledAt: new Date(),
+                rescheduledBy: req.user?.userId,
+            },
+            { new: true, runValidators: true },
+        ).populate('patient', 'patientCode fullName phone');
+
+        res.status(200).json({
+            success: true,
+            message: 'Đổi lịch hẹn thành công',
+            data: updatedAppointment,
+        });
+    } catch (error) {
+        console.error('Lỗi đổi lịch hẹn:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message,
+        });
+    }
+};
+
+// Xác nhận lịch hẹn
+export const confirmAppointment = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const appointment = await Appointment.findByIdAndUpdate(
+            id,
+            { status: 'confirmed', confirmedAt: new Date() },
+            { new: true, runValidators: true },
+        ).populate('patient', 'patientCode fullName phone');
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lịch hẹn không tồn tại',
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Xác nhận lịch hẹn thành công',
+            data: {
+                appointment,
+                confirmationCode: appointment.appointmentCode,
+            },
+        });
+    } catch (error) {
+        console.error('Lỗi xác nhận lịch hẹn:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message,
+        });
+    }
+};
+
+// Lấy lịch hẹn theo mã xác nhận
+export const getAppointmentByCode = async (req, res) => {
+    try {
+        const { code } = req.params;
+
+        const appointment = await Appointment.findOne({
+            appointmentCode: code,
+            status: {
+                $in: ['scheduled', 'confirmed', 'checked_in', 'in_progress'],
+            },
+        })
+            .populate(
+                'patient',
+                'patientCode fullName phone dateOfBirth gender',
+            )
+            .populate('doctor', 'fullName doctorInfo');
+
+        if (!appointment) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lịch hẹn không tồn tại hoặc đã hết hạn',
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: appointment,
+        });
+    } catch (error) {
+        console.error('Lỗi lấy lịch hẹn:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi server',
+            error: error.message,
+        });
+    }
+};
+
 export const cancelAppointment = async (req, res) => {
     try {
         const { id } = req.params;

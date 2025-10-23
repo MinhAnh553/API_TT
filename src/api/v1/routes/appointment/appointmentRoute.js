@@ -5,30 +5,61 @@ import {
     getAppointmentById,
     checkInAppointment,
     cancelAppointment,
+    findAvailableDoctors,
+    suggestAlternativeDoctors,
+    rescheduleAppointment,
+    confirmAppointment,
+    getAppointmentByCode,
 } from '../../../../controllers/appointment/appointmentController.js';
 import {
     authenticateToken,
     authorize,
 } from '../../../../middlewares/authMiddleware.js';
 
-const Router = express.Router();
+const router = express.Router();
 
-// Đặt lịch khám (public - không cần auth cho bệnh nhân)
-Router.post('/', createAppointment);
+// Public routes (không cần auth)
+router.post('/', createAppointment); // Đặt lịch khám
+router.get('/available-doctors', findAvailableDoctors); // Tìm bác sĩ còn trống
+router.get('/suggest-doctors', suggestAlternativeDoctors); // Gợi ý bác sĩ thay thế
+router.get('/code/:code', getAppointmentByCode); // Lấy lịch hẹn theo mã
 
-// Tất cả routes khác đều yêu cầu xác thực
-Router.use(authenticateToken);
+// Protected routes (cần auth)
+router.get(
+    '/',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    getAppointments,
+);
+router.get(
+    '/:id',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    getAppointmentById,
+);
+router.patch(
+    '/:id/checkin',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    checkInAppointment,
+);
+router.patch(
+    '/:id/cancel',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    cancelAppointment,
+);
+router.patch(
+    '/:id/reschedule',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    rescheduleAppointment,
+);
+router.patch(
+    '/:id/confirm',
+    authenticateToken,
+    authorize(['admin', 'doctor', 'receptionist']),
+    confirmAppointment,
+);
 
-// Lấy danh sách lịch khám với bộ lọc
-Router.get('/', getAppointments);
-
-// Lấy chi tiết lịch khám
-Router.get('/:id', getAppointmentById);
-
-// Check-in lịch khám
-Router.patch('/:id/checkin', checkInAppointment);
-
-// Hủy lịch khám
-Router.patch('/:id/cancel', cancelAppointment);
-
-export default Router;
+export default router;

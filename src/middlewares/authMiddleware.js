@@ -70,7 +70,10 @@ export const authorize = (...roles) => {
             });
         }
 
-        if (!roles.includes(req.user.role)) {
+        // Flatten roles array in case it's nested
+        const flatRoles = roles.flat();
+
+        if (!flatRoles.includes(req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: 'Truy cập bị từ chối. Quyền truy cập không đủ.',
